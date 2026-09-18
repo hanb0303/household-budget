@@ -1,0 +1,1880 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>가계부</title>
+  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+  <style>
+    :root {
+      --bg-app: #F2F4F6;
+      --bg-card: #FFFFFF;
+      --text-title: #191F28;
+      --text-body: #333D4B;
+      --text-sub: #6B7684;
+      --text-muted: #8B95A1;
+      --text-faint: #D1D6DB;
+      --line: #E5E8EB;
+      --line-light: #F2F4F6;
+      --toss-blue: #3182F6;
+      --toss-blue-light: #E8F3FF;
+      --toss-blue-hover: #1B64DA;
+      --danger: #F04452;
+      --radius-card: 16px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: "Pretendard", -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      letter-spacing: -0.02em;
+    }
+
+    /* 화면 전체 스크롤 방지 (100vh 고정) */
+    html, body {
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    body {
+      background-color: var(--bg-app);
+      color: var(--text-body);
+      font-size: 15px;
+      line-height: 1.45;
+      padding: 16px 24px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .app-shell {
+      max-width: 1440px;
+      width: 100%;
+      height: 100%;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* 1. 상단 GNB (토스/애플 스타일의 극도로 정제된 헤더) */
+    .gnb {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+      flex-shrink: 0;
+    }
+
+    .gnb-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-logo {
+      font-size: 19px;
+      font-weight: 800;
+      color: var(--text-title);
+      letter-spacing: -0.04em;
+    }
+
+    .gnb-divider {
+      width: 1px;
+      height: 14px;
+      background-color: var(--line);
+      margin: 0 2px;
+    }
+
+    /* 커스텀 연도 드롭다운 (네이티브 select 캡슐의 조잡함 완전 제거) */
+    .custom-dropdown {
+      position: relative;
+      display: inline-block;
+    }
+
+    .year-select-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 14.5px;
+      font-weight: 700;
+      color: var(--text-title);
+      background-color: #FFFFFF;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 5px 10px;
+      cursor: pointer;
+      outline: none;
+      transition: all 0.15s ease;
+      line-height: 1.2;
+    }
+
+    .year-select-btn:hover {
+      background-color: #F9FAFB;
+      border-color: #D1D6DB;
+    }
+
+    .year-select-btn.open {
+      border-color: var(--toss-blue);
+      box-shadow: 0 0 0 2px var(--toss-blue-light);
+    }
+
+    .year-select-btn .chevron-icon {
+      color: var(--text-muted);
+      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .year-select-btn.open .chevron-icon {
+      transform: rotate(180deg);
+      color: var(--toss-blue);
+    }
+
+    .dropdown-popover {
+      display: none;
+      position: absolute;
+      top: calc(100% + 5px);
+      left: 0;
+      min-width: 100px;
+      background: #FFFFFF;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04);
+      padding: 4px;
+      z-index: 1000;
+    }
+
+    .dropdown-popover.open {
+      display: block;
+      animation: dropFade 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes dropFade {
+      from {
+        opacity: 0;
+        transform: translateY(-4px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .dropdown-item {
+      padding: 7px 10px;
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--text-body);
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: all 0.12s ease;
+    }
+
+    .dropdown-item:hover {
+      background-color: #F2F4F6;
+      color: var(--text-title);
+    }
+
+    .dropdown-item.active {
+      color: var(--toss-blue);
+      font-weight: 700;
+      background-color: var(--toss-blue-light);
+    }
+
+    /* 애플/토스 세그먼트 컨트롤 스타일의 월 선택 바 */
+    .month-nav {
+      display: inline-flex;
+      gap: 2px;
+      align-items: center;
+      background-color: rgba(0, 0, 0, 0.04);
+      padding: 3px;
+      border-radius: 10px;
+    }
+
+    .month-btn {
+      border: none;
+      background: transparent;
+      padding: 4px 9px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-sub);
+      border-radius: 7px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      line-height: 1.2;
+    }
+
+    .month-btn:hover {
+      color: var(--text-title);
+    }
+
+    .month-btn.active {
+      background-color: #FFFFFF;
+      color: var(--text-title);
+      font-weight: 700;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 0.5px 1px rgba(0, 0, 0, 0.04);
+    }
+
+    .gnb-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .tab-switch {
+      display: inline-flex;
+      background-color: rgba(0, 0, 0, 0.04);
+      padding: 3px;
+      border-radius: 10px;
+      gap: 2px;
+    }
+
+    .tab-btn {
+      border: none;
+      background: transparent;
+      padding: 5px 12px;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--text-sub);
+      border-radius: 7px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      line-height: 1.2;
+    }
+
+    .tab-btn:hover {
+      color: var(--text-title);
+    }
+
+    .tab-btn.active {
+      background-color: #FFFFFF;
+      color: var(--text-title);
+      font-weight: 700;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 0.5px 1px rgba(0, 0, 0, 0.04);
+    }
+
+    .btn-copy-month {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      border: 1px solid var(--line);
+      background-color: #FFFFFF;
+      color: var(--text-sub);
+      font-size: 12.5px;
+      font-weight: 600;
+      padding: 5px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      line-height: 1.2;
+    }
+
+    .btn-copy-month:hover {
+      background-color: #F9FAFB;
+      border-color: #D1D6DB;
+      color: var(--text-title);
+    }
+
+    /* 2. 상단 3개 KPI 카드 (모든 사각형 가로길이 1:1:1 동일, 상하단 완벽 일치) */
+    .kpi-deck {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr)); /* 3개 사각형 가로길이 완벽하게 동일 */
+      gap: 14px;
+      margin-bottom: 12px;
+      flex-shrink: 0;
+      width: 100%;
+    }
+
+    .kpi-card {
+      background-color: var(--bg-card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-card);
+      padding: 16px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      min-width: 0;
+      box-sizing: border-box;
+    }
+
+    .kpi-card.hero {
+      background: linear-gradient(135deg, #FFFFFF 0%, #F5F9FF 100%);
+      border-color: #CFE2FF;
+    }
+
+    .kpi-title-col {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .kpi-tag {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .kpi-sub-memo {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .kpi-num {
+      font-size: 25px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: var(--text-title);
+      font-variant-numeric: tabular-nums;
+      line-height: 1.15;
+      flex-shrink: 0;
+    }
+
+    .kpi-num.accent {
+      color: var(--toss-blue);
+    }
+
+    .kpi-num .unit {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-sub);
+      margin-left: 2px;
+    }
+
+    /* 3. 본문 3열 메인 대시보드 (상단 KPI 카드와 1:1:1 폭, 갭 완벽 일치) */
+    .board-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr)); /* 상단과 100% 동일하게 1:1:1 동일 폭 */
+      gap: 14px;
+      flex: 1;
+      min-height: 0;
+      width: 100%;
+    }
+
+    .col-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      height: 100%;
+      min-height: 0;
+      min-width: 0;
+    }
+
+    .board-col {
+      background-color: var(--bg-card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-card);
+      padding: 18px 20px 14px;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      min-height: 0;
+      min-width: 0;
+      box-sizing: border-box;
+    }
+
+    /* 컬럼 헤더 */
+    .col-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 4px 12px 4px;
+      border-bottom: 1px solid var(--line);
+      margin-bottom: 12px;
+      flex-shrink: 0;
+    }
+
+    .col-badge-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .col-badge {
+      font-size: 12px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background-color: var(--line-light);
+      color: var(--text-sub);
+    }
+
+    .col-name {
+      font-size: 17px;
+      font-weight: 800;
+      color: var(--text-title);
+    }
+
+    /* 우측 금액 블록 */
+    .num-block {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      flex-shrink: 0;
+    }
+
+    .col-amount {
+      width: 120px;
+      font-size: 17px;
+      font-weight: 800;
+      color: var(--text-title);
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+      padding: 0;
+      margin: 0;
+    }
+
+    .module-subtotal {
+      width: 120px;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-sub);
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+      padding: 0;
+      margin: 0;
+    }
+
+    .unit-fixed {
+      width: 20px;
+      text-align: center;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-sub);
+      flex-shrink: 0;
+      display: inline-block;
+      margin: 0;
+      padding: 0;
+    }
+
+    .slot-spacer {
+      width: 22px;
+      height: 22px;
+      flex-shrink: 0;
+      display: inline-block;
+      margin: 0;
+      padding: 0;
+    }
+
+    /* 열 내부 스크롤 영역 */
+    .col-scroll-area {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding-right: 0;
+    }
+
+    .col-scroll-area::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .col-scroll-area::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .col-scroll-area::-webkit-scrollbar-thumb {
+      background-color: var(--text-faint);
+      border-radius: 4px;
+    }
+
+    /* 서브 모듈 헤더 */
+    .module-wrap {
+      margin-bottom: 16px;
+    }
+
+    .module-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 4px 4px 6px 4px;
+      margin-bottom: 4px;
+      border-bottom: 1px solid var(--line-light);
+    }
+
+    .module-title {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: var(--text-sub);
+    }
+
+    /* 데이터 행 스타일 */
+    .item-row {
+      display: flex;
+      align-items: center;
+      padding: 4px;
+      border-radius: 6px;
+      transition: background-color 0.1s ease;
+    }
+
+    .item-row:hover {
+      background-color: var(--line-light);
+    }
+
+    /* 인풋 */
+    .clean-input {
+      border: none;
+      outline: none;
+      background: transparent;
+      font-size: 14.5px;
+      color: var(--text-title);
+      border-bottom: 1.5px solid transparent;
+      border-radius: 0;
+      box-shadow: none !important;
+      transition: border-color 0.15s ease;
+    }
+
+    .clean-input:focus {
+      border-bottom: 1.5px solid var(--toss-blue);
+      background-color: transparent;
+      outline: none;
+      box-shadow: none !important;
+    }
+
+    .input-title {
+      flex: 1;
+      min-width: 0;
+      font-weight: 500;
+      padding: 3px 2px;
+    }
+
+    .input-pill-tag {
+      width: 76px;
+      flex-shrink: 0;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-sub);
+      background-color: #F2F4F6;
+      border: none;
+      border-radius: 6px;
+      text-align: center;
+      padding: 3px 4px;
+      margin-right: 6px;
+      outline: none;
+      transition: background-color 0.15s, color 0.15s;
+    }
+
+    .input-pill-tag:focus {
+      background-color: var(--toss-blue-light);
+      color: var(--toss-blue);
+      border-bottom: none;
+    }
+
+    .input-money {
+      width: 120px;
+      text-align: right;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      padding: 3px 0 !important;
+      margin: 0;
+    }
+
+    .btn-del-icon {
+      width: 22px;
+      height: 22px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: none;
+      background: transparent;
+      color: var(--text-faint);
+      cursor: pointer;
+      font-size: 12px;
+      border-radius: 4px;
+      opacity: 0;
+      flex-shrink: 0;
+      margin: 0;
+      padding: 0;
+      transition: opacity 0.1s, color 0.1s;
+    }
+
+    .item-row:hover .btn-del-icon {
+      opacity: 1;
+    }
+
+    .btn-del-icon:hover {
+      color: var(--danger);
+      background-color: #FFF0F1;
+    }
+
+    .btn-inline-append {
+      border: none;
+      background: transparent;
+      color: var(--toss-blue);
+      font-size: 13px;
+      font-weight: 600;
+      padding: 5px 6px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      border-radius: 5px;
+      margin-top: 4px;
+    }
+
+    .btn-inline-append:hover {
+      background-color: var(--toss-blue-light);
+    }
+
+    /* 4. 연간 결산 요약 뷰 */
+    .yearly-board {
+      background-color: var(--bg-card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-card);
+      padding: 24px 28px;
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .yearly-scroll-box {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+    }
+
+    .yearly-grid-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .yearly-grid-table th {
+      text-align: left;
+      font-weight: 600;
+      color: var(--text-muted);
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      font-size: 13px;
+      position: sticky;
+      top: 0;
+      background-color: var(--bg-card);
+    }
+
+    .yearly-grid-table td {
+      padding: 13px 14px;
+      border-bottom: 1px solid var(--line-light);
+      color: var(--text-title);
+      font-variant-numeric: tabular-nums;
+      font-size: 14.5px;
+    }
+
+    .yearly-grid-table tr:hover td {
+      background-color: var(--line-light);
+      cursor: pointer;
+    }
+
+    .yearly-grid-table th.right, .yearly-grid-table td.right {
+      text-align: right;
+    }
+
+    .yearly-grid-table tr.total-row td {
+      font-weight: 800;
+      border-top: 2px solid var(--text-title);
+      border-bottom: none;
+      background: transparent !important;
+      font-size: 15.5px;
+      padding-top: 16px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="app-shell">
+
+  <!-- 1. GNB 헤더 (토스/애플 스타일 미니멀 헤더) -->
+  <header class="gnb">
+    <div class="gnb-left">
+      <span class="brand-logo">가계부</span>
+      <div class="gnb-divider"></div>
+      
+      <!-- 커스텀 연도 드롭다운 (네이티브 select 제거) -->
+      <div class="custom-dropdown" id="yearDropdownWrap">
+        <button type="button" class="year-select-btn" id="yearSelectorBtn" onclick="toggleYearDropdown(event)">
+          <span id="currentYearDisplay">2026년</span>
+          <svg class="chevron-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </button>
+        <div class="dropdown-popover" id="yearMenu">
+          <div class="dropdown-item" data-year="2025" onclick="selectYear(2025)">2025년</div>
+          <div class="dropdown-item active" data-year="2026" onclick="selectYear(2026)">2026년</div>
+          <div class="dropdown-item" data-year="2027" onclick="selectYear(2027)">2027년</div>
+          <div class="dropdown-item" data-year="2028" onclick="selectYear(2028)">2028년</div>
+        </div>
+      </div>
+
+      <nav id="monthBar" class="month-nav"></nav>
+    </div>
+
+    <div class="gnb-right">
+      <div class="tab-switch">
+        <button id="btnViewMonthly" class="tab-btn active" onclick="setViewMode('monthly')">월별 가계부</button>
+        <button id="btnViewYearly" class="tab-btn" onclick="setViewMode('yearly')">연간 결산</button>
+      </div>
+      <button class="btn-copy-month" onclick="copyFromPrevMonth()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+        </svg>
+        <span>이전 달 복사</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- [뷰 1] 월별 가계부 와이드 대시보드 -->
+  <main id="monthlyView" style="display: flex; flex-direction: column; flex: 1; min-height: 0;">
+
+    <!-- 2. 상단 3개 KPI 카드 (아래 3열과 완벽하게 1:1로 수직 일치하는 그리드!) -->
+    <section class="kpi-deck">
+      <!-- 1열 위: 총 수입 -->
+      <div class="kpi-card">
+        <div class="kpi-title-col">
+          <span class="kpi-tag">총 수입</span>
+          <span class="kpi-sub-memo" id="kpiIncomeDetail">월급 + 입금</span>
+        </div>
+        <div class="kpi-num" id="kpiTotalIncome">0<span class="unit">원</span></div>
+      </div>
+
+      <!-- 2열 위: 실제 총 지출 -->
+      <div class="kpi-card">
+        <div class="kpi-title-col">
+          <span class="kpi-tag">실제 총 지출</span>
+          <span class="kpi-sub-memo">카드 + 이체 + 계좌고정비</span>
+        </div>
+        <div class="kpi-num" id="kpiTotalExpense">0<span class="unit">원</span></div>
+      </div>
+
+      <!-- 3열 위: 남은 순수익 (히어로) -->
+      <div class="kpi-card hero">
+        <div class="kpi-title-col">
+          <span class="kpi-tag" id="labelProfitMonth">9월 남은 순수익</span>
+          <span class="kpi-sub-memo" id="kpiFixedMemo">고정비 0원 포함</span>
+        </div>
+        <div class="kpi-num accent" id="kpiNetProfit">+0<span class="unit">원</span></div>
+      </div>
+    </section>
+
+    <!-- 3. 메인 3열 카드 보드 (상단 카드와 정확히 동일한 폭/간격) -->
+    <div class="board-grid">
+
+      <!-- 1열: 들어온 돈 & 메모 (독립된 2개의 박스) -->
+      <div class="col-stack">
+        <!-- 1-1: 들어온 돈 (수입 및 입금 박스) -->
+        <section class="board-col" id="incomeCardBox" style="flex: 1.2; height: auto;">
+          <div class="col-header">
+            <div class="col-badge-title">
+              <span class="col-badge">수입</span>
+              <span class="col-name">들어온 돈</span>
+            </div>
+            <div class="num-block">
+              <span class="col-amount" id="sumIncome">0</span>
+              <span class="unit-fixed">원</span>
+              <span class="slot-spacer"></span>
+            </div>
+          </div>
+
+          <div class="col-scroll-area">
+            <!-- 기본 월급 -->
+            <div class="item-row" style="background-color: var(--line-light); padding: 6px 4px; margin-bottom: 12px;">
+              <span style="flex: 1; font-weight: 700; color: var(--text-title); padding-left: 4px;">기본 월급</span>
+              <input type="text" id="salaryInput" class="clean-input input-money" placeholder="0" oninput="formatAmountInput(this)" onblur="saveCurrentMonthData()">
+              <span class="unit-fixed">원</span>
+              <span class="slot-spacer"></span>
+            </div>
+
+            <!-- 추가 입금 / 환급 -->
+            <div class="module-wrap">
+              <div class="module-head">
+                <span class="module-title">입금 및 환급 (부수입/정산)</span>
+                <div class="num-block">
+                  <span class="module-subtotal" id="subDeposits">0</span>
+                  <span class="unit-fixed">원</span>
+                  <span class="slot-spacer"></span>
+                </div>
+              </div>
+              <div id="depositRows"></div>
+              <button class="btn-inline-append" onclick="addRow('deposit')">+ 입금 항목 추가</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- 1-2: 메모 박스 (수입 박스 밑에 별도의 온전한 박스, 모든 월에 일관되게 표시, 그 어떤 계산에도 미포함) -->
+        <section class="board-col" id="memoCardBox" style="flex: 0.8; height: auto;">
+          <div class="col-header">
+            <div class="col-badge-title">
+              <span class="col-badge">메모</span>
+              <span class="col-name">메모</span>
+            </div>
+            <div class="num-block">
+              <span class="col-amount" id="subStandaloneMemo">0</span>
+              <span class="unit-fixed">원</span>
+              <span class="slot-spacer"></span>
+            </div>
+          </div>
+
+          <div class="col-scroll-area">
+            <div id="standaloneMemoRows"></div>
+            <button class="btn-inline-append" onclick="addRow('standaloneMemo')">+ 항목 추가</button>
+          </div>
+        </section>
+      </div>
+
+      <!-- 2열: 이번 달 소비 (카드 사용량 + 일상 이체) -->
+      <section class="board-col">
+        <div class="col-header">
+          <div class="col-badge-title">
+            <span class="col-badge" style="background-color: #FFEAEB; color: var(--danger);">지출</span>
+            <span class="col-name">이번 달 소비</span>
+          </div>
+          <div class="num-block">
+            <span class="col-amount" id="sumSpending">0</span>
+            <span class="unit-fixed">원</span>
+            <span class="slot-spacer"></span>
+          </div>
+        </div>
+
+        <div class="col-scroll-area">
+          <!-- 카드별 청구액 -->
+          <div class="module-wrap">
+            <div class="module-head">
+              <span class="module-title">카드별 청구 금액 (명세서)</span>
+              <div class="num-block">
+                <span class="module-subtotal" id="subCards">0</span>
+                <span class="unit-fixed">원</span>
+                <span class="slot-spacer"></span>
+              </div>
+            </div>
+            <div id="cardRows"></div>
+            <button class="btn-inline-append" onclick="addRow('card')">+ 카드 추가</button>
+          </div>
+
+          <!-- 일상 계좌이체 -->
+          <div class="module-wrap">
+            <div class="module-head">
+              <span class="module-title">일상 소비 계좌이체 (변동)</span>
+              <div class="num-block">
+                <span class="module-subtotal" id="subWires">0</span>
+                <span class="unit-fixed">원</span>
+                <span class="slot-spacer"></span>
+              </div>
+            </div>
+            <div id="wireRows"></div>
+            <button class="btn-inline-append" onclick="addRow('wire')">+ 이체 항목 추가</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3열: 고정비 종합 (계좌 고정비 + 카드 정기결제) -->
+      <section class="board-col">
+        <div class="col-header">
+          <div class="col-badge-title">
+            <span class="col-badge" style="background-color: var(--toss-blue-light); color: var(--toss-blue);">고정비</span>
+            <span class="col-name">고정비 관리</span>
+          </div>
+          <div class="num-block">
+            <span class="col-amount" id="sumFixedCombined" style="color: var(--text-sub);">0</span>
+            <span class="unit-fixed">원</span>
+            <span class="slot-spacer"></span>
+          </div>
+        </div>
+
+        <div class="col-scroll-area">
+          <!-- 계좌 직접 출금 고정비 -->
+          <div class="module-wrap">
+            <div class="module-head">
+              <span class="module-title">계좌 고정비 (실제 지출에 합산)</span>
+              <div class="num-block">
+                <span class="module-subtotal" id="subBankFixed">0</span>
+                <span class="unit-fixed">원</span>
+                <span class="slot-spacer"></span>
+              </div>
+            </div>
+            <div id="bankFixedRows"></div>
+            <button class="btn-inline-append" onclick="addRow('bankFixed')">+ 계좌 고정비 추가</button>
+          </div>
+
+          <!-- 카드 자동결제 정기결제 -->
+          <div class="module-wrap">
+            <div class="module-head">
+              <span class="module-title">카드 정기결제 (카드값에 기포함)</span>
+              <div class="num-block">
+                <span class="module-subtotal" id="subCardFixed">0</span>
+                <span class="unit-fixed">원</span>
+                <span class="slot-spacer"></span>
+              </div>
+            </div>
+            <div id="cardFixedRows"></div>
+            <button class="btn-inline-append" onclick="addRow('cardFixed')">+ 카드 정기결제 추가</button>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+  </main>
+
+  <!-- [뷰 2] 연간 결산 요약 뷰 -->
+  <main id="yearlyView" style="display: none; flex: 1; min-height: 0;">
+    <section class="yearly-board">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-shrink: 0;">
+        <span style="font-size: 18px; font-weight: 800; color: var(--text-title);" id="yearlyTitle">2026년 연간 결산 요약</span>
+      </div>
+      <div class="yearly-scroll-box">
+        <table class="yearly-grid-table">
+          <thead>
+            <tr>
+              <th style="width: 60px;">월</th>
+              <th class="right">총 수입</th>
+              <th class="right">카드 사용액</th>
+              <th class="right">일상 이체</th>
+              <th class="right">계좌 고정비</th>
+              <th class="right">실제 총 지출</th>
+              <th class="right" style="color: var(--toss-blue);">남은 순수익</th>
+              <th class="right" style="color: var(--text-muted);">총 고정비</th>
+            </tr>
+          </thead>
+          <tbody id="yearlyTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+</div>
+
+<script>
+  const monthlySeedData = {
+    "2026-1": {
+      salary: 10675620,
+      deposits: [
+        { name: "카드연회비", amount: 38145 },
+        { name: "땡겨요", amount: 42500 },
+        { name: "홍콩", amount: 730900 },
+        { name: "당근", amount: 10000 },
+        { name: "입금", amount: 20500 },
+        { name: "입금", amount: 62975 },
+        { name: "애들", amount: 71475 },
+        { name: "입금", amount: 63000 },
+        { name: "입금", amount: 19800 }
+      ],
+      cards: [
+        { name: "신한카드", amount: 673623 },
+        { name: "현대카드", amount: 1048892 },
+        { name: "국민카드", amount: 600320 },
+        { name: "롯데카드", amount: 0 }
+      ],
+      wires: [
+        { name: "케잎숙소", amount: 325530 },
+        { name: "엄마이집트", amount: 250000 },
+        { name: "지원나연", amount: 62099 },
+        { name: "렌터카", amount: 114835 },
+        { name: "아파트관리비", amount: 261380 },
+        { name: "침대운송비", amount: 40000 },
+        { name: "고수", amount: 9975 }
+      ],
+      bankFixed: [
+        { name: "DB손해보험", amount: 27180 },
+        { name: "대출이자", amount: 390345 },
+        { name: "월세", amount: 48000 },
+        { name: "계모임", amount: 30000 }
+      ],
+      cardFixed: [
+        { name: "애플", card: "본보이", amount: 11100 },
+        { name: "토스프라임", card: "더모아", amount: 5900 },
+        { name: "인터넷", card: "더모아", amount: 20900 },
+        { name: "아파트관리비", card: "본보이", amount: 261380 },
+        { name: "가스비", card: "아멕스그린", amount: 13810 },
+        { name: "농협손해보험", card: "카드", amount: 35224 },
+        { name: "DB손해보험", card: "본보이", amount: 14360 },
+        { name: "DB손해보험", card: "카드", amount: 20110 }
+      ]
+    },
+    "2026-2": {
+      salary: 8268780,
+      deposits: [
+        { name: "엄마", amount: 100000 },
+        { name: "고수여행", amount: 24472 },
+        { name: "샵백", amount: 40000 },
+        { name: "숙소취소", amount: 245182 }
+      ],
+      cards: [
+        { name: "신한카드", amount: 1229320 },
+        { name: "현대카드", amount: 723191 },
+        { name: "국민카드", amount: 0 },
+        { name: "롯데카드", amount: 0 }
+      ],
+      wires: [
+        { name: "사주", amount: 50000 },
+        { name: "고수치킨", amount: 19000 },
+        { name: "이은", amount: 82800 },
+        { name: "고수여행", amount: 73970 },
+        { name: "수선", amount: 15000 },
+        { name: "나연여행1", amount: 112873 },
+        { name: "나연여행2", amount: 142917 },
+        { name: "나연여행3", amount: 36545 },
+        { name: "남아공1", amount: 98264 },
+        { name: "남아공2", amount: 731013 }
+      ],
+      bankFixed: [
+        { name: "DB손해보험", amount: 27180 },
+        { name: "대출이자", amount: 390345 },
+        { name: "월세", amount: 48000 },
+        { name: "계모임", amount: 30000 }
+      ],
+      cardFixed: [
+        { name: "애플", card: "본보이", amount: 11100 },
+        { name: "토스프라임", card: "더모아", amount: 5900 },
+        { name: "인터넷", card: "더모아", amount: 20900 },
+        { name: "아파트관리비", card: "본보이", amount: 293200 },
+        { name: "가스비", card: "아멕스그린", amount: 23180 },
+        { name: "농협손해보험", card: "카드", amount: 35224 },
+        { name: "DB손해보험", card: "본보이", amount: 14360 },
+        { name: "DB손해보험", card: "카드", amount: 20110 }
+      ]
+    },
+    "2026-3": {
+      salary: 5091910,
+      deposits: [
+        { name: "엄마", amount: 200000 },
+        { name: "상엽", amount: 100000 },
+        { name: "생일선물", amount: 169608 },
+        { name: "당근-가방", amount: 400000 },
+        { name: "당근-빈백", amount: 10000 },
+        { name: "당근지갑", amount: 183200 },
+        { name: "당근-컴퓨터", amount: 250000 },
+        { name: "당근-해리포터", amount: 7000 },
+        { name: "당근-피겨화", amount: 181980 },
+        { name: "알라딘", amount: 34000 },
+        { name: "당근티셔츠", amount: 19000 },
+        { name: "당근", amount: 12000 }
+      ],
+      cards: [
+        { name: "신한카드", amount: 2604149 },
+        { name: "현대카드", amount: 1236660 },
+        { name: "국민카드", amount: 0 },
+        { name: "롯데카드", amount: 0 }
+      ],
+      wires: [
+        { name: "서울페이", amount: 190000 },
+        { name: "복권", amount: 10000 },
+        { name: "하이디라오", amount: 50775 },
+        { name: "정희-베베보", amount: 70000 },
+        { name: "이은", amount: 37500 },
+        { name: "에어컨주차", amount: 4000 }
+      ],
+      bankFixed: [
+        { name: "DB손해보험", amount: 27180 },
+        { name: "대출이자", amount: 352569 },
+        { name: "월세", amount: 48000 },
+        { name: "계모임", amount: 30000 }
+      ],
+      cardFixed: [
+        { name: "애플", card: "본보이", amount: 11100 },
+        { name: "토스프라임", card: "더모아", amount: 5900 },
+        { name: "인터넷", card: "더모아", amount: 20900 },
+        { name: "아파트관리비", card: "본보이", amount: 262110 },
+        { name: "가스비", card: "아멕스그린", amount: 11800 },
+        { name: "농협손해보험", card: "카드", amount: 35224 },
+        { name: "DB손해보험", card: "본보이", amount: 14360 },
+        { name: "DB손해보험", card: "카드", amount: 20110 },
+        { name: "기동카", card: "카드", amount: 55000 }
+      ]
+    },
+    "2026-4": {
+      salary: 5155450,
+      deposits: [
+        { name: "홍콩취소", amount: 120900 },
+        { name: "엄마", amount: 300000 },
+        { name: "상엽", amount: 283000 },
+        { name: "회사경조사", amount: 300000 },
+        { name: "당근", amount: 16300 },
+        { name: "스픽업", amount: 400000 },
+        { name: "왕희", amount: 71000 },
+        { name: "형준", amount: 50000 },
+        { name: "엄마발리", amount: 300000 },
+        { name: "솔희", amount: 30000 },
+        { name: "신한카드", amount: 100000 }
+      ],
+      cards: [
+        { name: "신한카드", amount: 1440036 },
+        { name: "현대카드", amount: 1701480 },
+        { name: "국민카드", amount: 787721 },
+        { name: "롯데카드", amount: 53297 }
+      ],
+      wires: [
+        { name: "루피아환전", amount: 200000 },
+        { name: "솔희", amount: 30000 },
+        { name: "솔희", amount: 53000 },
+        { name: "정희생일", amount: 83950 }
+      ],
+      bankFixed: [
+        { name: "DB손해보험", amount: 27180 },
+        { name: "대출이자", amount: 390345 },
+        { name: "월세", amount: 48000 },
+        { name: "계모임", amount: 30000 }
+      ],
+      cardFixed: [
+        { name: "애플", card: "본보이", amount: 11100 },
+        { name: "토스프라임", card: "더모아", amount: 5900 },
+        { name: "인터넷", card: "더모아", amount: 20900 },
+        { name: "아파트관리비", card: "본보이", amount: 276130 },
+        { name: "가스비", card: "아멕스그린", amount: 13890 },
+        { name: "농협손해보험", card: "카드", amount: 35224 },
+        { name: "DB손해보험", card: "본보이", amount: 14360 },
+        { name: "DB손해보험", card: "카드", amount: 20110 },
+        { name: "기동카", card: "카드", amount: 55000 }
+      ]
+    },
+    "2026-5": {
+      salary: 5155450,
+      deposits: [
+        { name: "솔이은", amount: 48000 },
+        { name: "카드캐시백", amount: 16131 },
+        { name: "솔이은", amount: 47030 },
+        { name: "솔이은", amount: 194000 },
+        { name: "발리입금", amount: 6200 },
+        { name: "입금", amount: 17000 },
+        { name: "입금", amount: 2200 }
+      ],
+      cards: [
+        { name: "신한카드", amount: 1139687 },
+        { name: "현대카드", amount: 1309571 },
+        { name: "국민카드", amount: 0 },
+        { name: "롯데카드", amount: 137800 }
+      ],
+      wires: [
+        { name: "머리", amount: 20000 },
+        { name: "눈썹", amount: 10000 },
+        { name: "당근골프화", amount: 110000 },
+        { name: "로또", amount: 10000 },
+        { name: "체크카드(발리)", amount: 270040 },
+        { name: "발리계좌이체", amount: 597225 }
+      ],
+      bankFixed: [
+        { name: "DB손해보험", amount: 27180 },
+        { name: "대출이자", amount: 390345 },
+        { name: "월세", amount: 48000 },
+        { name: "계모임", amount: 30000 }
+      ],
+      cardFixed: [
+        { name: "애플", card: "본보이", amount: 11100 },
+        { name: "토스프라임", card: "더모아", amount: 5900 },
+        { name: "인터넷", card: "더모아", amount: 20900 },
+        { name: "아파트관리비", card: "본보이", amount: 260280 },
+        { name: "가스비", card: "아멕스그린", amount: 15540 },
+        { name: "농협손해보험", card: "카드", amount: 35224 },
+        { name: "DB손해보험", card: "본보이", amount: 14360 },
+        { name: "DB손해보험", card: "카드", amount: 20110 },
+        { name: "기동카", card: "카드", amount: 55000 }
+      ]
+    },
+    "2026-6": {
+      salary: 5052110,
+      deposits: [
+        { name: "애들한강", amount: 24800 },
+        { name: "어학지원금", amount: 400000 },
+        { name: "실비", amount: 51730 },
+        { name: "지윤네", amount: 41625 },
+        { name: "그린피", amount: 31250 },
+        { name: "빠델환불", amount: 263616 },
+        { name: "이은솔", amount: 83625 },
+        { name: "서연그린피", amount: 20000 }
+      ],
+      cards: [
+        { name: "신한카드", amount: 1225082 },
+        { name: "현대카드", amount: 2439741 },
+        { name: "국민카드", amount: 128850 },
+        { name: "롯데카드", amount: 67000 }
+      ],
+      wires: [
+        { name: "지윤선물", amount: 12067 },
+        { name: "한강삼겹살", amount: 44824 },
+        { name: "영등포", amount: 50000 },
+        { name: "이은솔", amount: 65900 },
+        { name: "퍼터", amount: 55000 },
+        { name: "한강치킨", amount: 81000 },
+        { name: "골프백", amount: 48000 },
+        { name: "단쉐", amount: 70000 },
+        { name: "그린피반납", amount: 11300 }
+      ],
+      bankFixed: [
+        { name: "DB손해보험", amount: 27180 },
+        { name: "대출이자", amount: 390345 },
+        { name: "월세", amount: 48000 },
+        { name: "계모임", amount: 30000 }
+      ],
+      cardFixed: [
+        { name: "애플", card: "본보이", amount: 11100 },
+        { name: "토스프라임", card: "더모아", amount: 5900 },
+        { name: "인터넷", card: "더모아", amount: 20900 },
+        { name: "아파트관리비", card: "본보이", amount: 277560 },
+        { name: "가스비", card: "아멕스그린", amount: 15540 },
+        { name: "농협손해보험", card: "카드", amount: 35224 },
+        { name: "DB손해보험", card: "본보이", amount: 17750 },
+        { name: "DB손해보험", card: "카드", amount: 20110 },
+        { name: "기동카", card: "카드", amount: 55000 }
+      ]
+    },
+    "2026-7": {
+      salary: 5128250,
+      deposits: [
+        { name: "왕희", amount: 30000 },
+        { name: "엄마", amount: 2000000 },
+        { name: "기동카환급", amount: 30000 }
+      ],
+      cards: [
+        { name: "신한카드", amount: 622449 },
+        { name: "현대카드", amount: 750220 },
+        { name: "국민카드", amount: 2160300 },
+        { name: "롯데카드", amount: 145139 }
+      ],
+      wires: [
+        { name: "이은솔", amount: 48700 },
+        { name: "버핏", amount: 72233 },
+        { name: "지원", amount: 30700 },
+        { name: "상엽생일", amount: 100000 },
+        { name: "고수", amount: 24000 },
+        { name: "퍼팅매트", amount: 50000 },
+        { name: "솔", amount: 35000 },
+        { name: "머리", amount: 20000 }
+      ],
+      bankFixed: [
+        { name: "DB손해보험", amount: 27180 },
+        { name: "대출이자", amount: 377753 },
+        { name: "월세", amount: 48000 },
+        { name: "계모임", amount: 30000 }
+      ],
+      cardFixed: [
+        { name: "애플", card: "본보이", amount: 11100 },
+        { name: "토스프라임", card: "더모아", amount: 5900 },
+        { name: "인터넷", card: "더모아", amount: 20900 },
+        { name: "아파트관리비", card: "본보이", amount: 267030 },
+        { name: "가스비", card: "아멕스그린", amount: 10340 },
+        { name: "농협손해보험", card: "카드", amount: 35224 },
+        { name: "DB손해보험", card: "본보이", amount: 17750 },
+        { name: "DB손해보험", card: "카드", amount: 20110 }
+      ],
+      standaloneMemos: [
+        { name: "", amount: 0 },
+        { name: "", amount: 0 }
+      ]
+    },
+    "2026-8": {
+      salary: 0,
+      deposits: [
+        { name: "배당금", amount: 14261 },
+        { name: "락스 공구", amount: 12992 },
+        { name: "당근 싱글렛", amount: 11000 },
+        { name: "당근 아이멕스", amount: 25000 },
+        { name: "당근 티비이젤", amount: 18000 },
+        { name: "속초", amount: 114700 },
+        { name: "당근", amount: 14500 }
+      ],
+      cards: [
+        { name: "신한카드", amount: 546486 },
+        { name: "현대카드", amount: 937195 },
+        { name: "국민카드", amount: 256249 },
+        { name: "롯데카드", amount: 1318100 }
+      ],
+      wires: [
+        { name: "왕희승현", amount: 50000 },
+        { name: "속초숙소 바베큐+인원", amount: 50000 },
+        { name: "고수속초", amount: 20666 }
+      ],
+      bankFixed: [
+        { name: "DB손해보험", amount: 27180 },
+        { name: "대출이자", amount: 377753 },
+        { name: "월세", amount: 48000 },
+        { name: "계모임", amount: 30000 }
+      ],
+      cardFixed: [
+        { name: "애플", card: "본보이", amount: 11100 },
+        { name: "토스프라임", card: "더모아", amount: 5900 },
+        { name: "인터넷", card: "아멕스", amount: 20900 },
+        { name: "아파트관리비", card: "본보이", amount: 267030 },
+        { name: "가스비", card: "아멕스그린", amount: 10340 },
+        { name: "농협손해보험", card: "카드", amount: 35224 },
+        { name: "DB손해보험", card: "본보이", amount: 17750 },
+        { name: "DB손해보험", card: "카드", amount: 20110 },
+        { name: "기동카", card: "롯데카드", amount: 55000 }
+      ]
+    }
+  };
+
+  // 7월 기준 기본 고정비 세트 (미작성 달에 자동 탑재)
+  const defaultBankFixed = [
+    { name: "DB손해보험", amount: 27180 },
+    { name: "대출이자", amount: 377753 },
+    { name: "월세", amount: 48000 },
+    { name: "계모임", amount: 30000 }
+  ];
+
+  const defaultCardFixed = [
+    { name: "애플", card: "본보이", amount: 11100 },
+    { name: "토스프라임", card: "더모아", amount: 5900 },
+    { name: "인터넷", card: "더모아", amount: 20900 },
+    { name: "아파트관리비", card: "본보이", amount: 267030 },
+    { name: "가스비", card: "아멕스그린", amount: 10340 },
+    { name: "농협손해보험", card: "카드", amount: 35224 },
+    { name: "DB손해보험", card: "본보이", amount: 17750 },
+    { name: "DB손해보험", card: "카드", amount: 20110 }
+  ];
+
+  const defaultCards = [
+    { name: "신한카드", amount: 0 },
+    { name: "현대카드", amount: 0 },
+    { name: "국민카드", amount: 0 },
+    { name: "롯데카드", amount: 0 }
+  ];
+
+  let currentYear = 2026;
+  let currentMonth = 8;
+  let viewMode = 'monthly';
+  let budgetData = {};
+
+  function init() {
+    loadStorageData();
+    renderMonthBar();
+    renderView();
+  }
+
+  function loadStorageData() {
+    const saved = localStorage.getItem('household_budget_v19');
+    if (saved) {
+      try {
+        budgetData = JSON.parse(saved);
+      } catch (e) {
+        budgetData = {};
+      }
+    }
+    let updated = false;
+    // 1) 1~8월 실제 가계부 원본 데이터 시딩
+    for (const [key, val] of Object.entries(monthlySeedData)) {
+      if (!budgetData[key]) {
+        budgetData[key] = JSON.parse(JSON.stringify(val));
+        updated = true;
+      }
+    }
+    // 2) 2026년 미작성 월(9~12월)에도 고정관리비 및 메모칸 기본 탑재
+    for (let m = 1; m <= 12; m++) {
+      const k = `2026-${m}`;
+      if (!budgetData[k]) {
+        budgetData[k] = {
+          salary: 0,
+          deposits: [],
+          cards: JSON.parse(JSON.stringify(defaultCards)),
+          wires: [],
+          bankFixed: JSON.parse(JSON.stringify(defaultBankFixed)),
+          cardFixed: JSON.parse(JSON.stringify(defaultCardFixed)),
+          standaloneMemos: [
+            { name: '', amount: 0 },
+            { name: '', amount: 0 }
+          ]
+        };
+        updated = true;
+      }
+      if (!budgetData[k].standaloneMemos || budgetData[k].standaloneMemos.length === 0) {
+        budgetData[k].standaloneMemos = [
+          { name: '', amount: 0 },
+          { name: '', amount: 0 }
+        ];
+        updated = true;
+      }
+    }
+    if (updated || !saved) {
+      saveToStorage();
+    }
+  }
+
+  function saveToStorage() {
+    localStorage.setItem('household_budget_v19', JSON.stringify(budgetData));
+  }
+
+  function getMonthData(year, month) {
+    const key = `${year}-${month}`;
+    if (!budgetData[key]) {
+      budgetData[key] = {
+        salary: 0,
+        deposits: [],
+        cards: JSON.parse(JSON.stringify(defaultCards)),
+        wires: [],
+        bankFixed: JSON.parse(JSON.stringify(defaultBankFixed)),
+        cardFixed: JSON.parse(JSON.stringify(defaultCardFixed)),
+        standaloneMemos: [
+          { name: '', amount: 0 },
+          { name: '', amount: 0 }
+        ]
+      };
+      saveToStorage();
+    }
+    if (!budgetData[key].standaloneMemos || budgetData[key].standaloneMemos.length === 0) {
+      budgetData[key].standaloneMemos = [
+        { name: '', amount: 0 },
+        { name: '', amount: 0 }
+      ];
+    }
+    return budgetData[key];
+  }
+
+  function renderMonthBar() {
+    const bar = document.getElementById('monthBar');
+    bar.innerHTML = '';
+    for (let m = 1; m <= 12; m++) {
+      const btn = document.createElement('button');
+      btn.className = `month-btn ${m === currentMonth ? 'active' : ''}`;
+      btn.textContent = `${m}월`;
+      btn.onclick = () => selectMonth(m);
+      bar.appendChild(btn);
+    }
+  }
+
+  function selectMonth(m) {
+    currentMonth = m;
+    renderMonthBar();
+    renderMonthlyInputs();
+    calculateAndRender();
+  }
+
+  const deleteIconSvg = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
+
+  function toggleYearDropdown(e) {
+    if (e) e.stopPropagation();
+    const menu = document.getElementById('yearMenu');
+    const btn = document.getElementById('yearSelectorBtn');
+    if (!menu || !btn) return;
+    const isOpen = menu.classList.contains('open');
+    if (isOpen) {
+      closeYearDropdown();
+    } else {
+      menu.classList.add('open');
+      btn.classList.add('open');
+    }
+  }
+
+  function selectYear(yr) {
+    currentYear = parseInt(yr, 10);
+    closeYearDropdown();
+    updateYearDisplay();
+    renderView();
+  }
+
+  function closeYearDropdown() {
+    const menu = document.getElementById('yearMenu');
+    const btn = document.getElementById('yearSelectorBtn');
+    if (menu) menu.classList.remove('open');
+    if (btn) btn.classList.remove('open');
+  }
+
+  function updateYearDisplay() {
+    const display = document.getElementById('currentYearDisplay');
+    if (display) display.textContent = `${currentYear}년`;
+    document.querySelectorAll('#yearMenu .dropdown-item').forEach(item => {
+      if (parseInt(item.getAttribute('data-year'), 10) === currentYear) {
+        item.classList.add('active');
+      } else {
+        item.classList.remove('active');
+      }
+    });
+  }
+
+  window.addEventListener('click', () => {
+    closeYearDropdown();
+  });
+
+  function setViewMode(mode) {
+    viewMode = mode;
+    document.getElementById('btnViewMonthly').className = `tab-btn ${mode === 'monthly' ? 'active' : ''}`;
+    document.getElementById('btnViewYearly').className = `tab-btn ${mode === 'yearly' ? 'active' : ''}`;
+
+    if (mode === 'monthly') {
+      document.getElementById('monthlyView').style.display = 'flex';
+      document.getElementById('yearlyView').style.display = 'none';
+      renderMonthlyInputs();
+      calculateAndRender();
+    } else {
+      document.getElementById('monthlyView').style.display = 'none';
+      document.getElementById('yearlyView').style.display = 'flex';
+      renderYearlyTable();
+    }
+  }
+
+  function renderView() {
+    updateYearDisplay();
+    if (viewMode === 'monthly') {
+      renderMonthlyInputs();
+      calculateAndRender();
+    } else {
+      renderYearlyTable();
+    }
+  }
+
+  function formatNumber(num) {
+    if (isNaN(num) || num === null || num === undefined) return "0";
+    return Number(num).toLocaleString('ko-KR');
+  }
+
+  function parseNumber(str) {
+    if (!str) return 0;
+    const clean = String(str).replace(/[^0-9]/g, '');
+    return clean ? parseInt(clean, 10) : 0;
+  }
+
+  function formatAmountInput(input) {
+    const val = parseNumber(input.value);
+    input.value = val === 0 ? '' : formatNumber(val);
+    calculateAndRender();
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function renderMonthlyInputs() {
+    const data = getMonthData(currentYear, currentMonth);
+
+    document.getElementById('labelProfitMonth').textContent = `${currentMonth}월 남은 순수익`;
+    document.getElementById('salaryInput').value = data.salary ? formatNumber(data.salary) : '';
+
+    // 입금
+    renderList('depositRows', data.deposits, (row, idx) => `
+      <div class="item-row">
+        <input type="text" class="clean-input input-title" value="${escapeHtml(row.name)}" placeholder="항목명" onchange="saveCurrentMonthData()">
+        <div class="num-block">
+          <input type="text" class="clean-input input-money" value="${row.amount ? formatNumber(row.amount) : ''}" placeholder="0" oninput="formatAmountInput(this)" onblur="saveCurrentMonthData()">
+          <span class="unit-fixed">원</span>
+          <button class="btn-del-icon" onclick="deleteRow('deposit', ${idx})" title="삭제">${deleteIconSvg}</button>
+        </div>
+      </div>
+    `);
+
+    // 카드
+    renderList('cardRows', data.cards, (row, idx) => `
+      <div class="item-row">
+        <input type="text" class="clean-input input-title" value="${escapeHtml(row.name)}" placeholder="카드명" onchange="saveCurrentMonthData()">
+        <div class="num-block">
+          <input type="text" class="clean-input input-money" value="${row.amount ? formatNumber(row.amount) : ''}" placeholder="0" oninput="formatAmountInput(this)" onblur="saveCurrentMonthData()">
+          <span class="unit-fixed">원</span>
+          <button class="btn-del-icon" onclick="deleteRow('card', ${idx})" title="삭제">${deleteIconSvg}</button>
+        </div>
+      </div>
+    `);
+
+    // 이체
+    renderList('wireRows', data.wires, (row, idx) => `
+      <div class="item-row">
+        <input type="text" class="clean-input input-title" value="${escapeHtml(row.name)}" placeholder="이체 내용" onchange="saveCurrentMonthData()">
+        <div class="num-block">
+          <input type="text" class="clean-input input-money" value="${row.amount ? formatNumber(row.amount) : ''}" placeholder="0" oninput="formatAmountInput(this)" onblur="saveCurrentMonthData()">
+          <span class="unit-fixed">원</span>
+          <button class="btn-del-icon" onclick="deleteRow('wire', ${idx})" title="삭제">${deleteIconSvg}</button>
+        </div>
+      </div>
+    `);
+
+    // 계좌 고정비
+    renderList('bankFixedRows', data.bankFixed, (row, idx) => `
+      <div class="item-row">
+        <input type="text" class="clean-input input-title" value="${escapeHtml(row.name)}" placeholder="고정비 항목" onchange="saveCurrentMonthData()">
+        <div class="num-block">
+          <input type="text" class="clean-input input-money" value="${row.amount ? formatNumber(row.amount) : ''}" placeholder="0" oninput="formatAmountInput(this)" onblur="saveCurrentMonthData()">
+          <span class="unit-fixed">원</span>
+          <button class="btn-del-icon" onclick="deleteRow('bankFixed', ${idx})" title="삭제">${deleteIconSvg}</button>
+        </div>
+      </div>
+    `);
+
+    // 카드 정기결제
+    renderList('cardFixedRows', data.cardFixed, (row, idx) => `
+      <div class="item-row">
+        <input type="text" class="clean-input input-title" value="${escapeHtml(row.name)}" placeholder="정기결제 항목" onchange="saveCurrentMonthData()">
+        <input type="text" class="input-pill-tag" value="${escapeHtml(row.card || '')}" placeholder="카드" onchange="saveCurrentMonthData()">
+        <div class="num-block">
+          <input type="text" class="clean-input input-money" value="${row.amount ? formatNumber(row.amount) : ''}" placeholder="0" oninput="formatAmountInput(this)" onblur="saveCurrentMonthData()">
+          <span class="unit-fixed">원</span>
+          <button class="btn-del-icon" onclick="deleteRow('cardFixed', ${idx})" title="삭제">${deleteIconSvg}</button>
+        </div>
+      </div>
+    `);
+
+    // 수입칸 밑 별도 메모 박스 (전체 월 공통 적용, 그 어떤 계산에도 미포함)
+    const memoBox = document.getElementById('memoCardBox');
+    const incomeBox = document.getElementById('incomeCardBox');
+    if (memoBox && incomeBox) {
+      memoBox.style.display = 'flex';
+      memoBox.style.flex = '0.8';
+      memoBox.style.height = 'auto';
+      incomeBox.style.flex = '1.2';
+      incomeBox.style.height = 'auto';
+
+      if (!data.standaloneMemos || data.standaloneMemos.length === 0) {
+        data.standaloneMemos = [
+          { name: '', amount: 0 },
+          { name: '', amount: 0 }
+        ];
+      }
+      renderList('standaloneMemoRows', data.standaloneMemos, (row, idx) => `
+        <div class="item-row">
+          <input type="text" class="clean-input input-title" value="${escapeHtml(row.name)}" placeholder="메모 항목" onchange="saveCurrentMonthData()">
+          <div class="num-block">
+            <input type="text" class="clean-input input-money" value="${row.amount ? formatNumber(row.amount) : ''}" placeholder="0" oninput="formatAmountInput(this)" onblur="saveCurrentMonthData()">
+            <span class="unit-fixed">원</span>
+            <button class="btn-del-icon" onclick="deleteRow('standaloneMemo', ${idx})" title="삭제">${deleteIconSvg}</button>
+          </div>
+        </div>
+      `);
+    }
+  }
+
+  function renderList(containerId, list, rowGenerator) {
+    const el = document.getElementById(containerId);
+    el.innerHTML = (list || []).map((item, idx) => rowGenerator(item, idx)).join('');
+  }
+
+  function addRow(type) {
+    saveCurrentMonthData();
+    const data = getMonthData(currentYear, currentMonth);
+    if (type === 'deposit') data.deposits.push({ name: '', amount: 0 });
+    if (type === 'card') data.cards.push({ name: '', amount: 0 });
+    if (type === 'wire') data.wires.push({ name: '', amount: 0 });
+    if (type === 'bankFixed') data.bankFixed.push({ name: '', amount: 0 });
+    if (type === 'cardFixed') data.cardFixed.push({ name: '', card: '', amount: 0 });
+    if (type === 'standaloneMemo') {
+      if (!data.standaloneMemos) data.standaloneMemos = [];
+      data.standaloneMemos.push({ name: '', amount: 0 });
+    }
+
+    budgetData[`${currentYear}-${currentMonth}`] = data;
+    saveToStorage();
+    renderMonthlyInputs();
+    calculateAndRender();
+  }
+
+  function deleteRow(type, idx) {
+    saveCurrentMonthData();
+    const data = getMonthData(currentYear, currentMonth);
+    if (type === 'deposit') data.deposits.splice(idx, 1);
+    if (type === 'card') data.cards.splice(idx, 1);
+    if (type === 'wire') data.wires.splice(idx, 1);
+    if (type === 'bankFixed') data.bankFixed.splice(idx, 1);
+    if (type === 'cardFixed') data.cardFixed.splice(idx, 1);
+    if (type === 'standaloneMemo' && data.standaloneMemos) {
+      data.standaloneMemos.splice(idx, 1);
+    }
+
+    budgetData[`${currentYear}-${currentMonth}`] = data;
+    saveToStorage();
+    renderMonthlyInputs();
+    calculateAndRender();
+  }
+
+  function saveCurrentMonthData() {
+    const salary = parseNumber(document.getElementById('salaryInput').value);
+
+    const deposits = getListData('depositRows', row => {
+      const inputs = row.querySelectorAll('input');
+      return { name: inputs[0].value.trim(), amount: parseNumber(inputs[1].value) };
+    });
+
+    const cards = getListData('cardRows', row => {
+      const inputs = row.querySelectorAll('input');
+      return { name: inputs[0].value.trim(), amount: parseNumber(inputs[1].value) };
+    });
+
+    const wires = getListData('wireRows', row => {
+      const inputs = row.querySelectorAll('input');
+      return { name: inputs[0].value.trim(), amount: parseNumber(inputs[1].value) };
+    });
+
+    const bankFixed = getListData('bankFixedRows', row => {
+      const inputs = row.querySelectorAll('input');
+      return { name: inputs[0].value.trim(), amount: parseNumber(inputs[1].value) };
+    });
+
+    const cardFixed = getListData('cardFixedRows', row => {
+      const inputs = row.querySelectorAll('input');
+      return { name: inputs[0].value.trim(), card: inputs[1].value.trim(), amount: parseNumber(inputs[2].value) };
+    });
+
+    const standaloneMemos = getListData('standaloneMemoRows', row => {
+      const inputs = row.querySelectorAll('input');
+      return { name: inputs[0].value.trim(), amount: parseNumber(inputs[1].value) };
+    });
+
+    budgetData[`${currentYear}-${currentMonth}`] = {
+      salary,
+      deposits,
+      cards,
+      wires,
+      bankFixed,
+      cardFixed,
+      standaloneMemos
+    };
+
+    saveToStorage();
+    calculateAndRender();
+  }
+
+  function getListData(containerId, mapper) {
+    const rows = document.getElementById(containerId).querySelectorAll('.item-row');
+    const result = [];
+    rows.forEach(r => result.push(mapper(r)));
+    return result;
+  }
+
+  function calculateAndRender() {
+    const data = getMonthData(currentYear, currentMonth);
+
+    const salary = data.salary || 0;
+    const sumDeposits = (data.deposits || []).reduce((acc, cur) => acc + (cur.amount || 0), 0);
+    const totalIncome = salary + sumDeposits;
+
+    const sumCards = (data.cards || []).reduce((acc, cur) => acc + (cur.amount || 0), 0);
+    const sumWires = (data.wires || []).reduce((acc, cur) => acc + (cur.amount || 0), 0);
+    const sumBankFixed = (data.bankFixed || []).reduce((acc, cur) => acc + (cur.amount || 0), 0);
+    const sumCardFixed = (data.cardFixed || []).reduce((acc, cur) => acc + (cur.amount || 0), 0);
+
+    const totalSpending = sumCards + sumWires;
+    const totalExpense = totalSpending + sumBankFixed;
+    const netProfit = totalIncome - totalExpense;
+    const totalFixed = sumBankFixed + sumCardFixed;
+
+    // 상단 3개 KPI 카드 (아래 3열과 1:1 매핑)
+    document.getElementById('kpiTotalIncome').innerHTML = formatNumber(totalIncome) + '<span class="unit">원</span>';
+    document.getElementById('kpiTotalExpense').innerHTML = formatNumber(totalExpense) + '<span class="unit">원</span>';
+    
+    const profitEl = document.getElementById('kpiNetProfit');
+    profitEl.innerHTML = (netProfit >= 0 ? '+' : '') + formatNumber(netProfit) + '<span class="unit">원</span>';
+    document.getElementById('kpiFixedMemo').textContent = `고정비 ${formatNumber(totalFixed)}원 포함`;
+
+    // 1열
+    document.getElementById('sumIncome').textContent = formatNumber(totalIncome);
+    document.getElementById('subDeposits').textContent = formatNumber(sumDeposits);
+
+    // 1열 별도 메모 내역 (그 어떤 수입/지출 계산에도 미포함, 자체 총합만 표시)
+    const sumStandaloneMemo = (data.standaloneMemos || []).reduce((acc, cur) => acc + (cur.amount || 0), 0);
+    const memoSubtotalEl = document.getElementById('subStandaloneMemo');
+    if (memoSubtotalEl) memoSubtotalEl.textContent = formatNumber(sumStandaloneMemo);
+
+    // 2열
+    document.getElementById('sumSpending').textContent = formatNumber(totalSpending);
+    document.getElementById('subCards').textContent = formatNumber(sumCards);
+    document.getElementById('subWires').textContent = formatNumber(sumWires);
+
+    // 3열
+    document.getElementById('sumFixedCombined').textContent = formatNumber(totalFixed);
+    document.getElementById('subBankFixed').textContent = formatNumber(sumBankFixed);
+    document.getElementById('subCardFixed').textContent = formatNumber(sumCardFixed);
+  }
+
+  function renderYearlyTable() {
+    document.getElementById('yearlyTitle').textContent = `${currentYear}년 연간 결산 요약`;
+    const tbody = document.getElementById('yearlyTableBody');
+    tbody.innerHTML = '';
+
+    let sumYearIncome = 0;
+    let sumYearCards = 0;
+    let sumYearWires = 0;
+    let sumYearBankFixed = 0;
+    let sumYearExpense = 0;
+    let sumYearNet = 0;
+    let sumYearFixed = 0;
+
+    for (let m = 1; m <= 12; m++) {
+      const data = getMonthData(currentYear, m);
+      const salary = data.salary || 0;
+      const sumDeposits = (data.deposits || []).reduce((acc, cur) => acc + (cur.amount || 0), 0);
+      const totalIncome = salary + sumDeposits;
+
+      const sumCards = (data.cards || []).reduce((acc, cur) => acc + (cur.amount || 0), 0);
+      const sumWires = (data.wires || []).reduce((acc, cur) => acc + (cur.amount || 0), 0);
+      const sumBankFixed = (data.bankFixed || []).reduce((acc, cur) => acc + (cur.amount || 0), 0);
+      const sumCardFixed = (data.cardFixed || []).reduce((acc, cur) => acc + (cur.amount || 0), 0);
+
+      const totalExpense = sumCards + sumWires + sumBankFixed;
+      const netProfit = totalIncome - totalExpense;
+      const totalFixed = sumBankFixed + sumCardFixed;
+
+      // 작성된 달인지 판별 (수입이 있거나 소비 지출이 기록된 달)
+      const isWritten = (salary > 0 || (sumCards + sumWires) > 0 || sumDeposits > 0);
+
+      if (isWritten) {
+        sumYearIncome += totalIncome;
+        sumYearCards += sumCards;
+        sumYearWires += sumWires;
+        sumYearBankFixed += sumBankFixed;
+        sumYearExpense += totalExpense;
+        sumYearNet += netProfit;
+        sumYearFixed += totalFixed;
+      }
+
+      const tr = document.createElement('tr');
+      tr.title = `${m}월 가계부로 이동`;
+      tr.onclick = () => {
+        selectMonth(m);
+        setViewMode('monthly');
+      };
+
+      tr.innerHTML = `
+        <td style="font-weight: 700;">${m}월</td>
+        <td class="right">${isWritten ? (totalIncome ? formatNumber(totalIncome) + '원' : '0원') : '-'}</td>
+        <td class="right">${isWritten ? (sumCards ? formatNumber(sumCards) + '원' : '0원') : '-'}</td>
+        <td class="right">${isWritten ? (sumWires ? formatNumber(sumWires) + '원' : '0원') : '-'}</td>
+        <td class="right">${sumBankFixed ? formatNumber(sumBankFixed) + '원' : '-'}</td>
+        <td class="right" style="font-weight: 700;">${isWritten ? formatNumber(totalExpense) + '원' : '-'}</td>
+        <td class="right" style="font-weight: 800; color: var(--toss-blue);">${isWritten ? (netProfit >= 0 ? '+' : '') + formatNumber(netProfit) + '원' : '-'}</td>
+        <td class="right" style="color: var(--text-muted);">${totalFixed ? formatNumber(totalFixed) + '원' : '-'}</td>
+      `;
+      tbody.appendChild(tr);
+    }
+
+    const trTotal = document.createElement('tr');
+    trTotal.className = 'total-row';
+    trTotal.innerHTML = `
+      <td>연간 누적</td>
+      <td class="right">${formatNumber(sumYearIncome)}원</td>
+      <td class="right">${formatNumber(sumYearCards)}원</td>
+      <td class="right">${formatNumber(sumYearWires)}원</td>
+      <td class="right">${formatNumber(sumYearBankFixed)}원</td>
+      <td class="right">${formatNumber(sumYearExpense)}원</td>
+      <td class="right" style="color: var(--toss-blue);">${(sumYearNet >= 0 ? '+' : '') + formatNumber(sumYearNet)}원</td>
+      <td class="right" style="color: var(--text-muted);">${formatNumber(sumYearFixed)}원</td>
+    `;
+    tbody.appendChild(trTotal);
+  }
+
+  function copyFromPrevMonth() {
+    let prevYear = currentYear;
+    let prevMonth = currentMonth - 1;
+    if (prevMonth === 0) {
+      prevYear = currentYear - 1;
+      prevMonth = 12;
+    }
+
+    const prevData = budgetData[`${prevYear}-${prevMonth}`];
+    if (!prevData) {
+      alert(`${prevYear}년 ${prevMonth}월 데이터가 없습니다.`);
+      return;
+    }
+
+    if (!confirm(`${prevYear}년 ${prevMonth}월의 카드 및 고정비 목록을 현재 달로 복사하시겠습니까?`)) return;
+
+    const current = getMonthData(currentYear, currentMonth);
+    current.cards = (prevData.cards || []).map(c => ({ name: c.name, amount: 0 }));
+    current.bankFixed = (prevData.bankFixed || []).map(b => ({ name: b.name, amount: b.amount }));
+    current.cardFixed = (prevData.cardFixed || []).map(cf => ({ name: cf.name, card: cf.card, amount: cf.amount }));
+    if (!current.salary && prevData.salary) current.salary = prevData.salary;
+
+    budgetData[`${currentYear}-${currentMonth}`] = current;
+    saveToStorage();
+    renderMonthlyInputs();
+    calculateAndRender();
+  }
+
+  window.onload = init;
+</script>
+
+</body>
+</html>
