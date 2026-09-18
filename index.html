@@ -784,7 +784,6 @@
           </svg>
         </button>
         <div class="dropdown-popover" id="yearMenu">
-          <div class="dropdown-item" data-year="2025" onclick="selectYear(2025)">2025년</div>
           <div class="dropdown-item active" data-year="2026" onclick="selectYear(2026)">2026년</div>
           <div class="dropdown-item" data-year="2027" onclick="selectYear(2027)">2027년</div>
           <div class="dropdown-item" data-year="2028" onclick="selectYear(2028)">2028년</div>
@@ -799,11 +798,6 @@
         <button id="btnViewMonthly" class="tab-btn active" onclick="setViewMode('monthly')">월별 가계부</button>
         <button id="btnViewYearly" class="tab-btn" onclick="setViewMode('yearly')">연간 결산</button>
       </div>
-      <!-- 클라우드 연동 상태 및 설정 버튼 -->
-      <button type="button" class="cloud-status-pill" id="cloudStatusBtn" onclick="openCloudModal()" title="Firebase 클라우드 연동 설정">
-        <span class="cloud-dot" id="cloudDot"></span>
-        <span id="cloudStatusText">클라우드 미연동</span>
-      </button>
       <button class="btn-copy-month" onclick="copyFromPrevMonth()">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
