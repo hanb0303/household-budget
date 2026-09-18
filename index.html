@@ -461,6 +461,36 @@
       box-sizing: border-box;
     }
 
+    /* 1열 수입 박스: 남은 전체 높이 유연하게 채움 */
+    #incomeCardBox {
+      flex: 1 1 0% !important;
+      min-height: 0 !important;
+      height: auto !important;
+    }
+
+    /* 1열 메모 박스: 텍스트 및 항목 높이에 딱 맞게 컴팩트 조절 */
+    #memoCardBox {
+      flex: 0 0 auto !important;
+      height: auto !important;
+      max-height: 38%;
+      padding: 13px 18px 10px;
+    }
+
+    #memoCardBox .col-header {
+      padding: 0 2px 8px 2px;
+      margin-bottom: 8px;
+    }
+
+    #memoCardBox .item-row {
+      padding: 2px 2px;
+    }
+
+    #memoCardBox .btn-inline-append {
+      margin-top: 4px;
+      padding: 3px 6px;
+      font-size: 11.5px;
+    }
+
     /* 컬럼 헤더 */
     .col-header {
       display: flex;
@@ -847,7 +877,7 @@
       <!-- 1열: 들어온 돈 & 메모 (독립된 2개의 박스) -->
       <div class="col-stack">
         <!-- 1-1: 들어온 돈 (수입 및 입금 박스) -->
-        <section class="board-col" id="incomeCardBox" style="flex: 1.2; height: auto;">
+        <section class="board-col" id="incomeCardBox">
           <div class="col-header">
             <div class="col-badge-title">
               <span class="col-badge">수입</span>
@@ -886,7 +916,7 @@
         </section>
 
         <!-- 1-2: 메모 박스 (수입 박스 밑에 별도의 온전한 박스, 모든 월에 일관되게 표시, 그 어떤 계산에도 미포함) -->
-        <section class="board-col" id="memoCardBox" style="flex: 0.8; height: auto;">
+        <section class="board-col" id="memoCardBox">
           <div class="col-header">
             <div class="col-badge-title">
               <span class="col-badge">메모</span>
@@ -1692,10 +1722,7 @@
     const incomeBox = document.getElementById('incomeCardBox');
     if (memoBox && incomeBox) {
       memoBox.style.display = 'flex';
-      memoBox.style.flex = '0.8';
-      memoBox.style.height = 'auto';
-      incomeBox.style.flex = '1.2';
-      incomeBox.style.height = 'auto';
+      incomeBox.style.display = 'flex';
 
       if (!data.standaloneMemos || data.standaloneMemos.length === 0) {
         data.standaloneMemos = [
