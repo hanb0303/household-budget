@@ -1975,12 +1975,13 @@
 
   // Firebase 프로젝트 키가 코드에 직접 입력되어 있으면 우선 적용
   const embeddedFirebaseConfig = {
-    apiKey: "",
-    authDomain: "",
-    projectId: "",
-    storageBucket: "",
-    messagingSenderId: "",
-    appId: ""
+    apiKey: "AIzaSyDiQN2tanUxdMQE7MeEiUowa88XLJPWofA",
+    authDomain: "account-book-210fe.firebaseapp.com",
+    projectId: "account-book-210fe",
+    storageBucket: "account-book-210fe.firebasestorage.app",
+    messagingSenderId: "25143231908",
+    appId: "1:25143231908:web:797966148616fd9225ad31",
+    measurementId: "G-H3DZR98E83"
   };
 
   function initFirebase() {
@@ -2024,7 +2025,11 @@
         }
       }, err => {
         console.warn('Firestore snapshot error:', err);
-        updateCloudStatus('warning', '동기화 오류');
+        if (err.code === 'permission-denied') {
+          updateCloudStatus('warning', 'Firestore 보안규칙 확인');
+        } else {
+          updateCloudStatus('warning', 'Firestore DB 생성 필요');
+        }
       });
     } catch (err) {
       console.warn('Firebase init error:', err);
