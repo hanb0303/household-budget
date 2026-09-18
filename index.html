@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>가계부</title>
   <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+  <!-- Google Firebase SDK (Compat) -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
   <style>
     :root {
       --bg-app: #F2F4F6;
@@ -276,6 +279,88 @@
       background-color: #F9FAFB;
       border-color: #D1D6DB;
       color: var(--text-title);
+    }
+
+    /* 클라우드 동기화 상태 배지 버튼 */
+    .cloud-status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid var(--line);
+      background-color: #FFFFFF;
+      color: var(--text-sub);
+      font-size: 12.5px;
+      font-weight: 600;
+      padding: 5px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      line-height: 1.2;
+    }
+
+    .cloud-status-pill:hover {
+      background-color: #F9FAFB;
+      border-color: #D1D6DB;
+      color: var(--text-title);
+    }
+
+    .cloud-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background-color: #D1D6DB;
+      transition: background-color 0.2s ease;
+      display: inline-block;
+    }
+
+    .cloud-dot.synced {
+      background-color: #10B981;
+    }
+
+    .cloud-dot.syncing {
+      background-color: var(--toss-blue);
+      animation: pulse 0.8s infinite alternate;
+    }
+
+    .cloud-dot.warning {
+      background-color: #F59E0B;
+    }
+
+    @keyframes pulse {
+      from { opacity: 0.3; }
+      to { opacity: 1; }
+    }
+
+    /* 모달 오버레이 */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: rgba(0, 0, 0, 0.4);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      backdrop-filter: blur(2px);
+    }
+
+    .modal-overlay.open {
+      display: flex;
+    }
+
+    .modal-box {
+      background: #FFFFFF;
+      border-radius: 16px;
+      padding: 24px;
+      width: 480px;
+      max-width: 90vw;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
     }
 
     /* 2. 상단 3개 KPI 카드 (모든 사각형 가로길이 1:1:1 동일, 상하단 완벽 일치) */
@@ -714,6 +799,11 @@
         <button id="btnViewMonthly" class="tab-btn active" onclick="setViewMode('monthly')">월별 가계부</button>
         <button id="btnViewYearly" class="tab-btn" onclick="setViewMode('yearly')">연간 결산</button>
       </div>
+      <!-- 클라우드 연동 상태 및 설정 버튼 -->
+      <button type="button" class="cloud-status-pill" id="cloudStatusBtn" onclick="openCloudModal()" title="Firebase 클라우드 연동 설정">
+        <span class="cloud-dot" id="cloudDot"></span>
+        <span id="cloudStatusText">클라우드 미연동</span>
+      </button>
       <button class="btn-copy-month" onclick="copyFromPrevMonth()">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
@@ -1338,6 +1428,7 @@
     loadStorageData();
     renderMonthBar();
     renderView();
+    initFirebase();
   }
 
   function loadStorageData() {
@@ -1390,6 +1481,9 @@
 
   function saveToStorage() {
     localStorage.setItem('household_budget_v19', JSON.stringify(budgetData));
+    if (typeof db !== 'undefined' && db) {
+      uploadToCloud();
+    }
   }
 
   function getMonthData(year, month) {
@@ -1873,8 +1967,175 @@
     calculateAndRender();
   }
 
+  // -------------------------------------------------------------
+  // Firebase 클라우드 실시간 동기화 시스템
+  // -------------------------------------------------------------
+  let db = null;
+  let cloudSaveTimeout = null;
+
+  // Firebase 프로젝트 키가 코드에 직접 입력되어 있으면 우선 적용
+  const embeddedFirebaseConfig = {
+    apiKey: "",
+    authDomain: "",
+    projectId: "",
+    storageBucket: "",
+    messagingSenderId: "",
+    appId: ""
+  };
+
+  function initFirebase() {
+    let cfg = null;
+    const stored = localStorage.getItem('household_firebase_config');
+    if (stored) {
+      try { cfg = JSON.parse(stored); } catch (e) {}
+    }
+    if ((!cfg || !cfg.apiKey) && embeddedFirebaseConfig.apiKey) {
+      cfg = embeddedFirebaseConfig;
+    }
+
+    if (!cfg || !cfg.apiKey) {
+      updateCloudStatus('warning', '클라우드 미연동');
+      return;
+    }
+
+    try {
+      if (typeof firebase === 'undefined') {
+        updateCloudStatus('warning', 'SDK 로드 대기');
+        return;
+      }
+      if (!firebase.apps || !firebase.apps.length) {
+        firebase.initializeApp(cfg);
+      }
+      db = firebase.firestore();
+      updateCloudStatus('syncing', '클라우드 연결 중');
+
+      // 실시간 문서 감지 (모바일 ↔ PC 간 즉시 동기화)
+      db.collection('household_budgets').doc('default_account').onSnapshot(docSnap => {
+        if (docSnap.exists) {
+          const remote = docSnap.data();
+          if (remote && remote.budgetData) {
+            budgetData = remote.budgetData;
+            localStorage.setItem('household_budget_v19', JSON.stringify(budgetData));
+            renderView();
+            updateCloudStatus('synced', '실시간 연동됨');
+          }
+        } else {
+          uploadToCloud();
+        }
+      }, err => {
+        console.warn('Firestore snapshot error:', err);
+        updateCloudStatus('warning', '동기화 오류');
+      });
+    } catch (err) {
+      console.warn('Firebase init error:', err);
+      updateCloudStatus('warning', '설정 점검 필요');
+    }
+  }
+
+  function updateCloudStatus(state, text) {
+    const dot = document.getElementById('cloudDot');
+    const label = document.getElementById('cloudStatusText');
+    if (!dot || !label) return;
+
+    dot.className = 'cloud-dot ' + (state === 'synced' ? 'synced' : (state === 'syncing' ? 'syncing' : (state === 'warning' ? 'warning' : '')));
+    label.textContent = text;
+  }
+
+  function uploadToCloud() {
+    if (!db) return;
+    updateCloudStatus('syncing', '클라우드 저장 중');
+    clearTimeout(cloudSaveTimeout);
+    cloudSaveTimeout = setTimeout(() => {
+      db.collection('household_budgets').doc('default_account').set({
+        budgetData: budgetData,
+        lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+      }).then(() => {
+        updateCloudStatus('synced', '실시간 연동됨');
+      }).catch(err => {
+        console.error('Firestore save error:', err);
+        updateCloudStatus('warning', '클라우드 저장 실패');
+      });
+    }, 500);
+  }
+
+  function openCloudModal() {
+    const modal = document.getElementById('firebaseModal');
+    const input = document.getElementById('firebaseConfigInput');
+    const stored = localStorage.getItem('household_firebase_config');
+    if (stored && !input.value) {
+      input.value = stored;
+    }
+    if (modal) modal.classList.add('open');
+  }
+
+  function closeCloudModal(e) {
+    if (e && e.target && e.target.id !== 'firebaseModal') return;
+    const modal = document.getElementById('firebaseModal');
+    if (modal) modal.classList.remove('open');
+  }
+
+  function saveFirebaseConfigFromModal() {
+    const raw = document.getElementById('firebaseConfigInput').value.trim();
+    if (!raw) {
+      alert('Firebase 설정 내용을 붙여넣어주세요.');
+      return;
+    }
+    let parsed = null;
+    try {
+      if (raw.startsWith('{')) {
+        parsed = JSON.parse(raw);
+      } else {
+        const match = raw.match(/\{[\s\S]*\}/);
+        if (match) {
+          parsed = (new Function(`return ${match[0]}`))();
+        }
+      }
+    } catch (e) {
+      alert('설정 형식을 읽을 수 없습니다. Firebase 콘솔의 firebaseConfig 객체를 그대로 붙여넣어주세요.');
+      return;
+    }
+
+    if (!parsed || !parsed.apiKey) {
+      alert('apiKey 정보가 올바르지 않습니다.');
+      return;
+    }
+
+    localStorage.setItem('household_firebase_config', JSON.stringify(parsed));
+    const modal = document.getElementById('firebaseModal');
+    if (modal) modal.classList.remove('open');
+    initFirebase();
+    if (db) {
+      uploadToCloud();
+    }
+    alert('Firebase 설정이 저장되었습니다! 이제 모든 기기에서 실시간으로 동기화됩니다.');
+  }
+
   window.onload = init;
 </script>
+
+<!-- Firebase 클라우드 연동 설정 모달 -->
+<div class="modal-overlay" id="firebaseModal" onclick="closeCloudModal(event)">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 20px;">🔥</span>
+        <h3 style="font-size: 16px; font-weight: 800; color: var(--text-title);">Google Firebase 클라우드 연동</h3>
+      </div>
+      <button class="btn-del-icon" onclick="closeCloudModal()" style="opacity: 1; font-size: 16px;" title="닫기">✕</button>
+    </div>
+    <p style="font-size: 13px; color: var(--text-sub); margin-bottom: 14px; line-height: 1.55;">
+      Google Firebase(Firestore)를 연결하면 스마트폰, 태블릿, PC 어디서든 실시간으로 동일하게 자동 저장 및 동기화됩니다.
+    </p>
+    <label style="display: block; font-size: 12.5px; font-weight: 700; color: var(--text-title); margin-bottom: 6px;">
+      Firebase Config 객체 붙여넣기
+    </label>
+    <textarea id="firebaseConfigInput" class="clean-input" style="width: 100%; height: 140px; font-family: monospace; font-size: 11.5px; border: 1px solid var(--line); border-radius: 8px; padding: 10px; resize: none; background: #FAFBFD; margin-bottom: 14px;" placeholder="const firebaseConfig = {&#10;  apiKey: &quot;AIzaSy...&quot;,&#10;  authDomain: &quot;...firebaseapp.com&quot;,&#10;  projectId: &quot;...&quot;,&#10;  ...&#10;};"></textarea>
+    <div style="display: flex; justify-content: flex-end; gap: 8px;">
+      <button class="btn-copy-month" onclick="closeCloudModal()">취소</button>
+      <button class="tab-btn active" style="background-color: var(--toss-blue); color: #fff; padding: 7px 16px; font-size: 13px;" onclick="saveFirebaseConfigFromModal()">연동 저장</button>
+    </div>
+  </div>
+</div>
 
 </body>
 </html>
